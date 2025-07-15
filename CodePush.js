@@ -8,7 +8,7 @@ import hoistStatics from 'hoist-non-react-statics';
 let NativeCodePush = require("react-native").NativeModules.CodePush;
 const PackageMixins = require("./package-mixins")(NativeCodePush);
 
-async function checkForUpdate(deploymentKey = null, handleBinaryVersionMismatchCallback = null) {
+async function checkForUpdate(deploymentKey = null, serverUrl = null, handleBinaryVersionMismatchCallback = null) {
   /*
    * Before we ask the server if an update exists, we
    * need to retrieve three pieces of information from the
@@ -26,7 +26,10 @@ async function checkForUpdate(deploymentKey = null, handleBinaryVersionMismatchC
    * dynamically "redirecting" end-users at different
    * deployments (e.g. an early access deployment for insiders).
    */
-  const config = deploymentKey ? { ...nativeConfig, ...{ deploymentKey } } : nativeConfig;
+  let config = deploymentKey ? { ...nativeConfig, ...{ deploymentKey } } : nativeConfig;
+  config = serverUrl ? { ...nativeConfig, ...{ serverUrl } } : nativeConfig;
+
+
   const sdk = getPromisifiedSdk(requestFetchAdapter, config);
 
   // Use dynamically overridden getCurrentPackage() during tests.
@@ -364,6 +367,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
   let resolvedInstallMode;
   const syncOptions = {
     deploymentKey: null,
+    serverUrl: null,
     ignoreFailedUpdates: true,
     rollbackRetryOptions: null,
     installMode: CodePush.InstallMode.ON_NEXT_RESTART,
