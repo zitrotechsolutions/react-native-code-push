@@ -74,8 +74,8 @@ async function checkForUpdate(deploymentKey = null, serverUrl = null, handleBina
    *    version, which we can't do yet on Android.
    */
   if (!update || update.updateAppVersion ||
-      localPackage && (update.packageHash === localPackage.packageHash) ||
-      (!localPackage || localPackage._isDebugOnly) && config.packageHash === update.packageHash) {
+    localPackage && (update.packageHash === localPackage.packageHash) ||
+    (!localPackage || localPackage._isDebugOnly) && config.packageHash === update.packageHash) {
     if (update && update.updateAppVersion) {
       log("An update is available but it is not targeting the binary version of your app.");
       if (handleBinaryVersionMismatchCallback && typeof handleBinaryVersionMismatchCallback === "function") {
@@ -113,7 +113,7 @@ async function getCurrentPackage() {
 async function getUpdateMetadata(updateState) {
   let updateMetadata = await NativeCodePush.getUpdateMetadata(updateState || CodePush.UpdateState.RUNNING);
   if (updateMetadata) {
-    updateMetadata = {...PackageMixins.local, ...updateMetadata};
+    updateMetadata = { ...PackageMixins.local, ...updateMetadata };
     updateMetadata.failedInstall = await NativeCodePush.isFailedUpdate(updateMetadata.packageHash);
     updateMetadata.isFirstRun = await NativeCodePush.isFirstRun(updateMetadata.packageHash);
   }
@@ -164,27 +164,26 @@ function getPromisifiedSdk(requestFetchAdapter, config) {
 
 // This ensures that notifyApplicationReadyInternal is only called once
 // in the lifetime of this module instance.
-const notifyApplicationReady = (() => {
+const notifyApplicationReady = ((config) => {
   let notifyApplicationReadyPromise;
   return () => {
     if (!notifyApplicationReadyPromise) {
-      notifyApplicationReadyPromise = notifyApplicationReadyInternal();
+      notifyApplicationReadyPromise = notifyApplicationReadyInternal(config);
     }
 
     return notifyApplicationReadyPromise;
   };
 })();
 
-async function notifyApplicationReadyInternal() {
+async function notifyApplicationReadyInternal(config) {
   await NativeCodePush.notifyApplicationReady();
   const statusReport = await NativeCodePush.getNewStatusReport();
-  statusReport && tryReportStatus(statusReport); // Don't wait for this to complete.
+  statusReport && tryReportStatus(statusReport, null, config); // Don't wait for this to complete.
 
   return statusReport;
 }
 
-async function tryReportStatus(statusReport, retryOnAppResume) {
-  const config = await getConfiguration();
+async function tryReportStatus(statusReport, retryOnAppResume, config) {
   const previousLabelOrAppVersion = statusReport.previousLabelOrAppVersion;
   const previousDeploymentKey = statusReport.previousDeploymentKey || config.deploymentKey;
   try {
@@ -222,7 +221,7 @@ async function tryReportStatus(statusReport, retryOnAppResume) {
         if (newState !== "active") return;
         const refreshedStatusReport = await NativeCodePush.getNewStatusReport();
         if (refreshedStatusReport) {
-          tryReportStatus(refreshedStatusReport, resumeListener);
+          tryReportStatus(refreshedStatusReport, resumeListener, config);
         } else {
           resumeListener && resumeListener.remove();
         }
@@ -380,41 +379,41 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
   syncStatusChangeCallback = typeof syncStatusChangeCallback === "function"
     ? syncStatusChangeCallback
     : (syncStatus) => {
-        switch(syncStatus) {
-          case CodePush.SyncStatus.CHECKING_FOR_UPDATE:
-            log("Checking for update.");
-            break;
-          case CodePush.SyncStatus.AWAITING_USER_ACTION:
-            log("Awaiting user action.");
-            break;
-          case CodePush.SyncStatus.DOWNLOADING_PACKAGE:
-            log("Downloading package.");
-            break;
-          case CodePush.SyncStatus.INSTALLING_UPDATE:
-            log("Installing update.");
-            break;
-          case CodePush.SyncStatus.UP_TO_DATE:
-            log("App is up to date.");
-            break;
-          case CodePush.SyncStatus.UPDATE_IGNORED:
-            log("User cancelled the update.");
-            break;
-          case CodePush.SyncStatus.UPDATE_INSTALLED:
-            if (resolvedInstallMode == CodePush.InstallMode.ON_NEXT_RESTART) {
-              log("Update is installed and will be run on the next app restart.");
-            } else if (resolvedInstallMode == CodePush.InstallMode.ON_NEXT_RESUME) {
-              if (syncOptions.minimumBackgroundDuration > 0) {
-                log(`Update is installed and will be run after the app has been in the background for at least ${syncOptions.minimumBackgroundDuration} seconds.`);
-              } else {
-                log("Update is installed and will be run when the app next resumes.");
-              }
+      switch (syncStatus) {
+        case CodePush.SyncStatus.CHECKING_FOR_UPDATE:
+          log("Checking for update.");
+          break;
+        case CodePush.SyncStatus.AWAITING_USER_ACTION:
+          log("Awaiting user action.");
+          break;
+        case CodePush.SyncStatus.DOWNLOADING_PACKAGE:
+          log("Downloading package.");
+          break;
+        case CodePush.SyncStatus.INSTALLING_UPDATE:
+          log("Installing update.");
+          break;
+        case CodePush.SyncStatus.UP_TO_DATE:
+          log("App is up to date.");
+          break;
+        case CodePush.SyncStatus.UPDATE_IGNORED:
+          log("User cancelled the update.");
+          break;
+        case CodePush.SyncStatus.UPDATE_INSTALLED:
+          if (resolvedInstallMode == CodePush.InstallMode.ON_NEXT_RESTART) {
+            log("Update is installed and will be run on the next app restart.");
+          } else if (resolvedInstallMode == CodePush.InstallMode.ON_NEXT_RESUME) {
+            if (syncOptions.minimumBackgroundDuration > 0) {
+              log(`Update is installed and will be run after the app has been in the background for at least ${syncOptions.minimumBackgroundDuration} seconds.`);
+            } else {
+              log("Update is installed and will be run when the app next resumes.");
             }
-            break;
-          case CodePush.SyncStatus.UNKNOWN_ERROR:
-            log("An unknown error occurred.");
-            break;
-        }
-      };
+          }
+          break;
+        case CodePush.SyncStatus.UNKNOWN_ERROR:
+          log("An unknown error occurred.");
+          break;
+      }
+    };
 
   try {
     await CodePush.notifyApplicationReady();
@@ -441,7 +440,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
 
     if (!remotePackage || updateShouldBeIgnored) {
       if (updateShouldBeIgnored) {
-          log("An update is available, but it is being ignored due to having been previously rolled back.");
+        log("An update is available, but it is being ignored due to having been previously rolled back.");
       }
 
       const currentPackage = await CodePush.getCurrentPackage();
@@ -483,12 +482,12 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
             }
           });
         }
-        
+
         // Since the install button should be placed to the 
         // right of any other button, add it last
         dialogButtons.push({
           text: installButtonText,
-          onPress:() => {
+          onPress: () => {
             doDownloadAndInstall()
               .then(resolve, reject);
           }
@@ -529,7 +528,7 @@ function codePushify(options = {}) {
 
   if (!React.Component) {
     throw new Error(
-`Unable to find the "Component" class, please either:
+      `Unable to find the "Component" class, please either:
 1. Upgrade to a newer version of React Native that supports it, or
 2. Call the codePush.sync API in your component instead of using the @codePush decorator`
     );
@@ -576,7 +575,7 @@ function codePushify(options = {}) {
       }
 
       render() {
-        const props = {...this.props};
+        const props = { ...this.props };
 
         // We can set ref property on class components only (not stateless)
         // Check it by render method
