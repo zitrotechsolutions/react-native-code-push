@@ -108,6 +108,9 @@ export interface SyncOptions {
      */
     deploymentKey?: string;
 
+
+    serverUrl?: string;
+
     /**
      * Specifies when you would like to install optional updates (i.e. those that aren't marked as mandatory).
      * Defaults to codePush.InstallMode.ON_NEXT_RESTART.
